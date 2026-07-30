@@ -19,21 +19,25 @@
             <div id="hero-carousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="5000">
 
                 @foreach($banners as $key => $banner)
-                <div class="carousel-item {{ $key == 0 ? 'active' : '' }}">
-                    
-                    <img src="{{ asset('home/banner/' . $banner->banner_images) }}" alt="banner-img">
+    <div class="carousel-item {{ $key == 0 ? 'active' : '' }}">
+        
+        <img src="{{ asset('home/banner/' . $banner->banner_images) }}" alt="banner-img">
 
-                    <div class="carousel-container ddpu-home-banner-cont">
-                    <h2>{{ $banner->banner_heading }}</h2>
+        <div class="carousel-container ddpu-home-banner-cont">
 
-                   <a href="{{ route('joinmembership.form') }}" class="btn-dark btn-lg">
-    <span>Join Membership</span>
-</a>
+            @if($key == 0)
+                <h1>{{ $banner->banner_heading }}</h1>
+            @else
+                <h2>{{ $banner->banner_heading }}</h2>
+            @endif
 
-                    </div>
+            <a href="{{ route('joinmembership.form') }}" class="btn-dark btn-lg">
+                <span>Join Membership</span>
+            </a>
 
-                </div>
-                @endforeach
+        </div>
+    </div>
+@endforeach
 
                 <!-- Carousel controls -->
                 <a class="carousel-control-prev" href="#hero-carousel" role="button" data-bs-slide="prev">

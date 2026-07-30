@@ -2,7 +2,7 @@
       <div class="container d-flex justify-content-center justify-content-md-between">
         <div class="d-none d-md-flex align-items-center ddpu-tb-sub-sec-one">
           <a href="mailto:info@ddpu.co.uk"><i class="fa-solid fa-envelope"></i> info@ddpu.co.uk</a>
-          <a href="tel:01618702193"><i class="fa-solid fa-phone"></i> 0161 870 2193</a>
+          <a href="tel:+44 01618702193"><i class="fa-solid fa-phone"></i> 0161 870 2193</a>
         </div>
         <div class="ddpu-tb-sub-sec-two">
           <a href="https://www.instagram.com"><i class="fa-brands fa-instagram"></i></a>
@@ -16,12 +16,12 @@
     <div class="branding d-flex align-items-center">
       <div class="container position-relative d-flex align-items-center justify-content-end">
         <a href="{{ route('frontend.index') }}" class="logo d-flex align-items-center me-auto">
-          <img src="{{ asset('frontend/assets/img/logo/ddpu-logo.jpg')}}" alt="DDPU Logo">
+          <img src="{{ asset('frontend/assets/img/logo/ddpu-logo.webp')}}" alt="DDPU Logo">
         </a>
         <nav id="navmenu" class="navmenu">
           <ul>
             <li><a href="{{ route('frontend.index') }}" class="active">Home</a></li>
-            <li class="dropdown"><a href=""><span>About Us</span> <i
+            <li class="dropdown"><a href="#"><span>About Us</span> <i
                   class="bi bi-chevron-down toggle-dropdown"></i></a>
               <ul>
                 <li><a href="{{ route('frontend.whatisddpu') }}">What is DDPU?</a></li>
@@ -32,7 +32,7 @@
                 <li><a href="{{ route('frontend.testimonials') }}">Testimonials</a></li>
               </ul>
             </li>
-            <li class="dropdown"><a href=""><span>Services</span> <i
+            <li class="dropdown"><a href="#"><span>Services</span> <i
                   class="bi bi-chevron-down toggle-dropdown"></i></a>
               <ul>
                 <li><a href="{{ route('frontend.services-membership') }}">Membership</a></li>
@@ -52,7 +52,7 @@
                 <li><a href="{{ route('frontend.for_non_members') }}">For Non Members</a></li>
               </ul>
             </li>
-            <li class="dropdown"><a href=""><span>Membership</span> <i
+            <li class="dropdown"><a href="#"><span>Membership</span> <i
                   class="bi bi-chevron-down toggle-dropdown"></i></a>
               <ul>
                 <li><a href="{{ route('frontend.membership_benefits') }}">Membership Benefits</a></li>

@@ -646,6 +646,14 @@ h6 {
   color: #1877F2;
 }
 
+.footer h3 {
+  font-size: 22px;
+  font-weight: bold;
+  position: relative;
+  padding-bottom: 12px;
+  color: #1e5dab;
+}
+
 
 .footer h4 {
   font-size: 22px;
@@ -1082,6 +1090,10 @@ section,
     padding: 25px 10px 60px !important;
 }
 
+.mp-one-content-para-sec h2 {
+    margin-top: 12px;
+}
+
 .mp-one-content-para-sec h4 {
     margin-top: 12px;
 }
@@ -1089,6 +1101,7 @@ section,
 .dentists-title-sec h2,
 .psaso-title-sec h2,
 .for-non-members-title-sec h2,
+.what-is-ddpu-one-content-sec h3,
 .what-is-ddpu-one-content-sec h4,
 .our-exp-title-sec h2,
 .membership-benefits-custom-title-sec h2 {
@@ -1113,6 +1126,10 @@ section,
 
 .staff-personnel-team-sec .col-xl-3 {
     margin-top: 20px;
+}
+
+.general-practice-content-sub-one-sec .gpcso-para-sec span {
+    margin-top: 12px !important;
 }
 
 .general-practice-content-sub-one-sec .gpcso-para-sec h3 {
@@ -1174,6 +1191,14 @@ section,
 
 
 /* == */
+.hero h1 {
+  margin-bottom: 24px;
+  font-size: 52px;
+  font-weight: 700;
+  animation: fadeInDown 1.5s both;
+  text-transform: uppercase;
+  color: #ffffff;
+}
 
 .hero h2 {
   margin-bottom: 24px;
@@ -1189,6 +1214,10 @@ section,
 }
 
 @media (max-width: 768px) {
+    .hero h1 {
+    font-size: 20px;
+  }
+    
   .hero h2 {
     font-size: 20px;
   }
@@ -1199,7 +1228,7 @@ section,
 }
 
 @media (min-width: 1024px) {
-
+    .hero h1,
   .hero h2,
   .hero p {
     /* max-width: 60%; */
@@ -2608,7 +2637,7 @@ section,
 .join-membership-sec {
   position: relative;
   padding: 100px 0;
-  background-image: url(../img/bg/join-membership-banner-img.jpg);
+  background-image: url(../img/bg/join-membership-banner-img.webp);
   background-size: cover;
   background-attachment: fixed;
   background-repeat: no-repeat;
@@ -2867,6 +2896,10 @@ section,
   .aim-member-unique-sec .about-img {
       margin-bottom: 20px;
   }
+  
+  .hero h1 {
+    font-size: 40px;
+  }
 
   .hero h2 {
     font-size: 40px;
@@ -2909,6 +2942,10 @@ section,
 @media only screen and (min-width: 1024px) and (max-width: 1100px) {
   .hero .carousel {
     min-height: calc(100vh - 150px);
+  }
+    
+    .hero h1 {
+    font-size: 40px;
   }
 
   .hero h2 {
@@ -3062,6 +3099,13 @@ section,
   right: 0;
   bottom: 0;
   margin: 0 auto;
+}
+
+.what-is-ddpu-one-content-sec h3 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #00A79D;
+  margin-bottom: 12px;
 }
 
 .what-is-ddpu-one-content-sec h4 {
@@ -3459,6 +3503,13 @@ section,
   margin-top: 12px;
 }
 
+.testi-one-card-sec .to-upper-sec span {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  margin-top: 12px;
+}
+
 .testi-one-card-sec .to-lower-sec p {
   margin-bottom: 0;
 }
@@ -3475,6 +3526,14 @@ section,
 
 .mp-one-para-sec p {
   color: #000000;
+}
+
+
+.mp-one-content-para-sec h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #00A79D;
+  margin-bottom: 12px;
 }
 
 .mp-one-content-para-sec h4 {
@@ -4120,6 +4179,15 @@ section,
 
 .general-practice-content-sub-one-sec:hover .gpcso-img-sec img {
   transform: rotateY(360deg);
+}
+
+.general-practice-content-sub-one-sec .gpcso-para-sec span {
+  font-size: 19px;
+  font-weight: 600;
+  color: #113163;
+  text-transform: capitalize;
+  margin-bottom: 12px;
+  margin-top: 0;
 }
 
 .general-practice-content-sub-one-sec .gpcso-para-sec h3 {

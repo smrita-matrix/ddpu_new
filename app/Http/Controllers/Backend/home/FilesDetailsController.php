@@ -108,8 +108,8 @@ public function import(Request $request)
                     $row->account_number,
                     $row->account_name,
                     number_format($row->amount, 2, '.', ''), // ✅ correct amount
-                    $row->bacs_code,
-                    '',                       // Invoice No (Optional)
+ ctype_digit((string) $row->bacs_code) ? str_pad((string) $row->bacs_code, 2, '0', STR_PAD_LEFT) : $row->bacs_code,
+ '',                       // Invoice No (Optional)
                     '',                       // Title
                     $row->initial ?? '',
                     $row->forename ?? '',

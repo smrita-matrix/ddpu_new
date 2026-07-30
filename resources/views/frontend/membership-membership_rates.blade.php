@@ -86,7 +86,7 @@
               </ul>
             @endif
 
-            <a href="{{ route('joinmembership.form') }}" class="pricingTable-signup">join now</a>
+            <a href="{{ route('joinmembership.form') }}" class="pricingTable-signup">Join now</a>
           </div>
         </div>
         @endforeach

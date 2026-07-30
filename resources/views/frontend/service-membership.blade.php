@@ -57,7 +57,7 @@
                 </div>
                 <div class="col-lg-8 col-md-8">
                     <div class="mp-one-content-para-sec">
-                    <h4>{{ $item['heading'] ?? '' }}</h4>
+                    <h2>{{ $item['heading'] ?? '' }}</h2>
                     <p>{{ $item['description'] ?? '' }}</p>
                     </div>
                 </div>

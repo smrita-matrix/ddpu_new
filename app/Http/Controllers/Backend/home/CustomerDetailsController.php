@@ -756,61 +756,154 @@ class CustomerDetailsController extends Controller
         return Excel::download(new \App\Exports\CustomerExport($memberships), $filename . '.xlsx');
     }
 
-    private function streamCsv($memberships): StreamedResponse
+    /**
+     * Build a lookup of members already known to us, keyed by a normalised DD
+     * reference, with every bank-detail pair ever seen for that reference:
+     *   normRef => [ ['sort' => '..', 'acc' => '..'], ... ]
+     *
+     * Sources (merged):
+     *   1. FastPay portal — whichever portal the current credentials target
+     *      (test now, live after credentials are switched). A member found under
+     *      ANY status (Live/Expired/Cancelled/Suspended) counts as existing,
+     *      matching the client's rule "previously paid with the same bank
+     *      details". To restrict to active mandates, filter on $c['Status'] ===
+     *      'Live' in the portal loop.
+     *   2. Local file_details — members from files we've previously processed.
+     *      Empty on the very first upload, so the portal decides that time.
+     *
+     * Portal failure is non-fatal: we log and continue with local records only.
+     */
+    private function buildKnownMemberIndex(): \Illuminate\Support\Collection
+    {
+        $index = collect();
+
+        $add = function ($ref, $sort, $acc) use ($index) {
+            $key = $this->normRef($ref);
+            if ($key === '') return;
+            $pairs = $index->get($key, []);
+            $pairs[] = ['sort' => (string) $sort, 'acc' => (string) $acc];
+            $index->put($key, $pairs);
+        };
+
+        // 1) FastPay portal
+        try {
+            foreach (app(\App\Services\FastPayService::class)->getAllCustomers() as $c) {
+                if (!empty($c['DDReference'])) {
+                    $add($c['DDReference'], $c['SortCode'] ?? '', $c['AccountNumber'] ?? '');
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('FastPay portal lookup failed; using local records only for 0N. ' . $e->getMessage());
+        }
+
+        // 2) Local previously-processed records
+        foreach (FileDetail::whereNotNull('dd_reference')->get(['dd_reference', 'sort_code', 'account_number']) as $r) {
+            $add($r->dd_reference, $r->sort_code, $r->account_number);
+        }
+
+        return $index;
+    }
+
+    /** Normalise a DD reference for matching (strip punctuation/spaces, upper). */
+    private function normRef($ref): string
+    {
+        return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $ref));
+    }
+
+    /** Normalise a sort code / account number to bare digits without leading zeros. */
+    private function normDigits($v): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $v);
+        return ltrim($digits, '0');
+    }
+
+        private function streamCsv($memberships)
     {
         $filename = now()->format('y-m-d') . ' DDPU (Monthly on the 10th)';
 
-        // DD references that have ALREADY been submitted in a previous file.
-        // A member whose reference is not here is on their FIRST collection.
-        $collectedRefs = FileDetail::whereNotNull('dd_reference')
-            ->pluck('dd_reference')
-            ->unique()
-            ->flip();
+        // Decide '0N' (new-mandate setup) per member by checking whether they
+        // already exist — against BOTH sources:
+        //   1. The FastPay portal (whichever the current credentials target).
+        //   2. Our local DB of previously-processed files (file_details).
+        // First upload: local is empty, so the portal decides. After the first
+        // file is processed, those records live locally too, so later exports
+        // check local + portal together.
+        //
+        //   - Not found in either            -> new member       -> 0N + 01
+        //   - Found, but bank details differ -> re-setup mandate -> 0N + 01
+        //   - Found, same bank details       -> existing member  -> 17 (no 0N)
+        $known = $this->buildKnownMemberIndex();
 
-        return new StreamedResponse(function () use ($memberships, $collectedRefs) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['DD Reference', 'Sort Code', 'Account No', 'Account Name', 'Amount', 'BACS Code']);
+        $rows = collect();
 
-            foreach ($memberships as $member) {
-                $step1    = is_array($member->step1)        ? $member->step1        : json_decode($member->step1, true);
-                $payment  = is_array($member->step1_signup) ? $member->step1_signup : json_decode($member->step1_signup, true);
-                $fullName = trim(implode(' ', array_filter([
-                    data_get($step1, 'title'),
-                    data_get($step1, 'last_name'),
-                ])));
+        foreach ($memberships as $member) {
+            $step1    = is_array($member->step1)        ? $member->step1        : json_decode($member->step1, true);
+            $payment  = is_array($member->step1_signup) ? $member->step1_signup : json_decode($member->step1_signup, true);
+            $fullName = trim(implode(' ', array_filter([
+                data_get($step1, 'title'),
+                data_get($step1, 'last_name'),
+            ])));
 
-                $ref    = $member->dd_reference ?? '';
-                $sort   = data_get($payment, 'sort_code', '');
-                $acc    = data_get($payment, 'account_number', '');
-                $amount = number_format((float) ($member->price ?? 0), 2, '.', '');
+            $ref    = $member->dd_reference ?? '';
+            $sort   = (string) data_get($payment, 'sort_code', '');
+            $acc    = (string) data_get($payment, 'account_number', '');
+            $amount = round((float) ($member->price ?? 0), 2);
 
-                // Account Name = the BANK ACCOUNT HOLDER (the editable "Account Name"
-                // field in User Details), not the member's name — BACS requires the
-                // name on the bank account. Fall back to the member name if blank.
-                $accountName = trim((string) data_get($payment, 'account_holder', '')) ?: $fullName;
+            $accountName = trim((string) data_get($payment, 'account_holder', '')) ?: $fullName;
 
-                // Client BACS rules:
-                //   0N = setup only (no collection) | 01 = first payment | 17 = regular payment.
-                // A reference NOT in any previous file is a NEW direct debit → its first
-                // collection is split into TWO lines: an 0N at £0.00 (setup) and an 01 with
-                // the amount. Every subsequent collection is a single line with code 17.
-                $isNewDirectDebit = !($ref && $collectedRefs->has($ref));
+            $normRef  = $this->normRef($ref);
+            $existing = $ref !== '' && $known->has($normRef);
 
-                if ($isNewDirectDebit) {
-                    // Line 1: setup only, zero amount
-                    fputcsv($handle, [$ref, $sort, $acc, $accountName, '0.00', '0N']);
-                    // Line 2: first payment, with amount
-                    fputcsv($handle, [$ref, $sort, $acc, $accountName, $amount, '01']);
-                } else {
-                    // Regular / subsequent collection (incl. existing annual single instalment)
-                    fputcsv($handle, [$ref, $sort, $acc, $accountName, $amount, '17']);
+            $bankChanged = false;
+            if ($existing) {
+                // Existing means "same bank details" only if the current sort/acc
+                // matches at least one previously-known pair (portal or local).
+                $curSort = $this->normDigits($sort);
+                $curAcc  = $this->normDigits($acc);
+                $matched = false;
+                foreach ($known->get($normRef) as $bp) {
+                    if ($this->normDigits($bp['sort']) === $curSort && $this->normDigits($bp['acc']) === $curAcc) {
+                        $matched = true;
+                        break;
+                    }
                 }
+                $bankChanged = !$matched;
             }
-            fclose($handle);
-        }, 200, [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '.csv"',
-        ]);
+
+            $isNewDirectDebit = !$existing || $bankChanged;
+
+            if ($isNewDirectDebit) {
+                $rows->push([$ref, $sort, $acc, $accountName, 0.00, '0N']);
+                $rows->push([$ref, $sort, $acc, $accountName, $amount, '01']);
+            } else {
+                $rows->push([$ref, $sort, $acc, $accountName, $amount, '17']);
+            }
+        }
+
+        $export = new class($rows) implements
+            \Maatwebsite\Excel\Concerns\FromCollection,
+            \Maatwebsite\Excel\Concerns\WithHeadings,
+            \Maatwebsite\Excel\Concerns\WithColumnFormatting
+        {
+            private $rows;
+            public function __construct($rows) { $this->rows = $rows; }
+            public function collection() { return $this->rows; }
+            public function headings(): array
+            {
+                return ['DD Reference', 'Sort Code', 'Account No', 'Account Name', 'Amount', 'BACS Code'];
+            }
+            public function columnFormats(): array
+            {
+                return [
+                    'B' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT,
+                    'C' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT,
+                    'E' => '0.00',
+                    'F' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT,
+                ];
+            }
+        };
+
+        return Excel::download($export, $filename . '.xlsx');
     }
 
     private function streamReport($memberships): StreamedResponse
@@ -910,32 +1003,16 @@ class CustomerDetailsController extends Controller
 
         $member = MembershipApplicationform::findOrFail($request->id);
 
-        if ($member->status !== 'inactive') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only inactive members can be deleted.',
-            ], 403);
-        }
-
-        if (!$member->inactive_at) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Member has no inactive date recorded. Cannot delete.',
-            ], 403);
-        }
-
-        $yearsInactive = Carbon::parse($member->inactive_at)->diffInYears(now());
-
-        if ($yearsInactive < 3) {
-            $remaining = 3 - $yearsInactive;
-            return response()->json([
-                'success' => false,
-                'message' => "Member must be inactive for at least 3 years. {$remaining} more year(s) required.",
-            ], 403);
-        }
-
+        // Normal manual delete — admin can remove any member at any time
+        // (no inactive/3-year restriction). Also removes the linked login row.
         $memberName = $this->resolveName($member);
-        $member->delete();
+
+        \DB::transaction(function () use ($member) {
+            if ($member->user_id) {
+                \App\Models\UsersMembership::where('id', $member->user_id)->delete();
+            }
+            $member->delete();
+        });
 
         return response()->json([
             'success' => true,

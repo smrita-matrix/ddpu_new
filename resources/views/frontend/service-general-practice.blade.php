@@ -86,7 +86,7 @@
                 <!-- TEXT -->
                 <div class="col-12 col-md-10">
                   <div class="gpcso-para-sec">
-                    <h3>{{ $item['heading'] ?? '' }}</h3>
+                    <span>{{ $item['heading'] ?? '' }}</span>
                     <p>{{ $item['description'] ?? '' }}</p>
                   </div>
                 </div>

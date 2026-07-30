@@ -75,7 +75,7 @@
             {{-- Name & Designation --}}
             <div class="spt-content">
               <a href="{{ url('staff-personnel/' . $staff->slug) }}">
-                <h4 class="spt-name">{{ $staff->name }}</h4>
+                <span class="spt-name">{{ $staff->name }}</span>
                 <p class="spt-specialty">{{ $staff->designation }}</p>
               </a>
             </div>

@@ -67,7 +67,18 @@ use App\Http\Controllers\Frontend\MembershipdeatilpageController;
 
 //contact frontend controller
 use App\Http\Controllers\Frontend\ContactController;
+use Illuminate\Support\Facades\Mail;
 
+Route::get('/test-mail', function () {
+    try {
+        Mail::raw('Test email from DDPU site — if you got this, mail works.', function ($m) {
+            $m->to('smrita@matrixbricks.com')->subject('DDPU mail test');
+        });
+        return 'SENT — check the inbox (and spam folder).';
+    } catch (\Throwable $e) {
+        return 'FAILED: ' . $e->getMessage();
+    }
+});
 
 // Backend
 Route::get('/admin-login', [LoginController::class, 'login'])->name('admin.login');
@@ -94,15 +105,6 @@ Route::resource('our-experienced', OurExperienceDetailsController::class);
 Route::resource('our-methods', OurmethodDetailsController::class);
 Route::resource('some-of-our-past-cases', SomeOfOurPastCasesDetailsController::class);
 Route::resource('aboutus-testimonials-details', AboutusTestimonialsDetailsController::class);
-Route::get('/test-mail', function () {
-
-    Mail::raw('This is a test email from Laravel SMTP.', function ($message) {
-        $message->to('sandeep@matrixbricks.com')
-                ->subject('Laravel SMTP Test');
-    });
-
-    return 'Mail sent successfully';
-});
 Route::get('/mail-check', function () {
     return [
         'mailer' => config('mail.default'),
@@ -305,12 +307,12 @@ Route::get('/testimonials', [AboutusController::class, 'testimonials'])->name('f
 
 
 //frontend fetching services page
-Route::get('/membership', [ServicesController::class, 'membership'])->name('frontend.services-membership');
-Route::get('/dentists', [ServicesController::class, 'dentists'])->name('frontend.services-dentists');
+Route::get('/services-membership', [ServicesController::class, 'membership'])->name('frontend.services-membership');
+Route::get('/services-dentists', [ServicesController::class, 'dentists'])->name('frontend.services-dentists');
 Route::get('/general-practice', [ServicesController::class, 'general_practice'])->name('frontend.general-practice');
-Route::get('/consultants', [ServicesController::class, 'consultants'])->name('frontend.consultants');
+Route::get('/consultants-services', [ServicesController::class, 'consultants'])->name('frontend.consultants');
 Route::get('/sas-doctors-and-other-non-training-grades', [ServicesController::class, 'sas_doctors'])->name('frontend.sas-doctors');
-Route::get('/trainees', [ServicesController::class, 'trainees'])->name('frontend.trainees');
+Route::get('/services-trainees', [ServicesController::class, 'trainees'])->name('frontend.trainees');
 Route::get('/trainees-specialist-non-training-grades', [ServicesController::class, 'trustgradeDetails'])->name('frontend.trustgradeDetails');
 Route::get('/private-sector-academic-specialities', [ServicesController::class, 'private_sector_academic_specialities'])->name('frontend.private_sector_academic_specialities');
 Route::get('/compare-us', [ServicesController::class, 'compare_us'])->name('frontend.compare_us');

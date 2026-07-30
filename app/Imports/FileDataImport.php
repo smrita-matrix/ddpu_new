@@ -67,7 +67,7 @@ class FileDataImport implements
                 // ✅ FIXED AMOUNT
                 'amount'         => $amount,
 
-                'bacs_code'      => $row['bacs_code'] ?? null,
+                'bacs_code'      => $this->cleanBacs($row['bacs_code'] ?? null),
                 'invoice_no'     => $row['invoice_no_optional'] ?? $row['invoice_no'] ?? null,
                 'title'          => $row['title'] ?? null,
                 'initial'        => $row['initial'] ?? null,
@@ -145,7 +145,13 @@ class FileDataImport implements
         $value = preg_replace('/[^A-Za-z0-9 .&\/\'\-]/', '', $value);
         return trim(preg_replace('/\s+/', ' ', $value)); // collapse repeated spaces
     }
+private function cleanBacs($value)
+    {
+        $v = strtoupper(trim((string) $value));
+        if ($v === '') return null;
 
+        return ctype_digit($v) ? str_pad($v, 2, '0', STR_PAD_LEFT) : $v;
+    }
     /**
      * Performance Optimization
      */

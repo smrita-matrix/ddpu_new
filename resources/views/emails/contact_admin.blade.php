@@ -29,25 +29,31 @@
         <p>You have received a new enquiry through the contact form. Details are below:</p>
 
         <table>
-            <tr>
-                <td><strong>Name:</strong></td>
-                <td>{{ $details['name'] }}</td>
-            </tr>
-            <tr>
-                <td><strong>Email:</strong></td>
-                <td>{{ $details['email'] }}</td>
-            </tr>
-            @if(!empty($details['subject']))
-            <tr>
-                <td><strong>Subject:</strong></td>
-                <td>{{ $details['subject'] }}</td>
-            </tr>
-            @endif
-            <tr>
-                <td><strong>Message:</strong></td>
-                <td>{!! nl2br(e($details['message'])) !!}</td>
-            </tr>
-        </table>
+    <tr>
+        <td><strong>Name:</strong></td>
+        <td>{{ $details['name'] }}</td>
+    </tr>
+    <tr>
+        <td><strong>Email:</strong></td>
+        <td>{{ $details['email'] }}</td>
+    </tr>
+    @if(!empty($details['phone']))
+    <tr>
+        <td><strong>Phone:</strong></td>
+        <td>{{ $details['phone'] }}</td>
+    </tr>
+    @endif
+    @if(!empty($details['subject']))
+    <tr>
+        <td><strong>Subject:</strong></td>
+        <td>{{ $details['subject'] }}</td>
+    </tr>
+    @endif
+    <tr>
+        <td><strong>Message:</strong></td>
+        <td>{!! nl2br(e($details['message'])) !!}</td>
+    </tr>
+</table>
     </div>
 
     <!-- Footer -->

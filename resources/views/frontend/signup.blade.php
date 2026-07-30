@@ -479,7 +479,7 @@ document.getElementById('nextBtn').addEventListener('click', async () => {
         /* ── Call Loqate via proxy — validate sort code + account number together ── */
         try {
             const res = await fetch(
-                `https://anvayafoundation.com/DDPU/proxy-bank-validation` +
+                `https://ddpu.co.uk/proxy-bank-validation` +
                 `?sortCode=${encodeURIComponent(sortClean)}` +
                 `&accountNumber=${encodeURIComponent(accNumVal)}` +
                 `&accountHolder=${encodeURIComponent(holderVal)}`
@@ -544,7 +544,7 @@ document.getElementById('nextBtn').addEventListener('click', async () => {
         /* ── Save step 1 data ── */
         loader.classList.remove('d-none');
 
-        await fetch('https://anvayafoundation.com/DDPU/signup/step1-save', {
+        await fetch('https://ddpu.co.uk/signup/step1-save', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
             body: JSON.stringify({
@@ -588,7 +588,7 @@ document.getElementById('nextBtn').addEventListener('click', async () => {
         fd.append('step1_data[service_number]',serviceNumber);
         fd.append('step1_data[payment_plan]',  paymentPlan);
 
-        await fetch('https://anvayafoundation.com/DDPU/signup/step1-save', {
+        await fetch('https://ddpu.co.uk/signup/step1-save', {
             method:  'POST',
             headers: { 'X-CSRF-TOKEN': csrf },
             body:    fd
@@ -662,7 +662,7 @@ function showConfirmation(type, serviceNumber, today, fileName = '') {
         }
 
         const uploadedFilePath = uploadedFileName !== 'No file uploaded'
-            ? `${window.location.origin}/DDPU/direct-debit/${uploadedFileName}`
+            ? `${window.location.origin}/direct-debit/${uploadedFileName}`
             : '';
 
         leftHtml = `
@@ -816,7 +816,7 @@ document.getElementById('finalSubmitBtn').addEventListener('click', async functi
     document.getElementById('printPdfBtn').disabled = true;
 
     try {
-        const res = await fetch("https://anvayafoundation.com/DDPU/signup/final-submit", {
+        const res = await fetch("https://ddpu.co.uk/signup/final-submit", {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
             body: JSON.stringify({
@@ -913,7 +913,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const userId = document.getElementById('userId').value;
 
     try {
-        const res = await fetch("https://anvayafoundation.com/DDPU/signup/get-progress", {
+        const res = await fetch("https://ddpu.co.uk/signup/get-progress", {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
             body:    JSON.stringify({ user_id: userId })

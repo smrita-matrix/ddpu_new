@@ -45,8 +45,8 @@
                 <img src="{{ asset('uploads/aboutustestimonials/' . $item['image']) }}" 
                      class="img-fluid" 
                      alt="Testimonials Image">
-                <h4>{{ $item['name'] }}</h4>
-                <h6>{{ $item['profession'] }}</h6>
+                <span>{{ $item['name'] }}</span>
+                <p>{{ $item['profession'] }}</p>
               </div>
               <hr>
               <div class="to-lower-sec">

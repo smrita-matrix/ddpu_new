@@ -1289,7 +1289,7 @@ document.getElementById("finalSubmitBtn").addEventListener("click", async functi
         const result = await res.json();
         if (result.status === "success") {
             Swal.fire({ icon: "success", title: "Application Submitted!", timer: 2000, showConfirmButton: false });
-            setTimeout(() => { window.location.href = "/DDPU/Signup-form/" + result.user_id; }, 1800);
+            setTimeout(() => { window.location.href = "/Signup-form/" + result.user_id; }, 1800);
         } else {
             Swal.fire("Error", result.message, "error");
         }

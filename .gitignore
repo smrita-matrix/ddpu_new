@@ -22,3 +22,10 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 vendor.zip
+
+# Member financial / PII data — must NOT be committed (repo is public)
+/Membership_Import_Updates*.xlsx
+/public/direct-debit/
+/public/reports/
+/public/uploads/fastpay/
+/public/applications/

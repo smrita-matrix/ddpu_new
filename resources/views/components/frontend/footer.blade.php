@@ -48,7 +48,7 @@
             <div class="col-lg-2 col-md-2 d-md-none d-lg-block"></div>
             <!-- SERVICES -->
             <div class="col-lg-3 col-md-3 footer-links">
-                <h4>Our Services</h4>
+                <h3>Our Services</h3>
                 <ul>
                     <li><a href="{{ route('frontend.services-membership') }}">Membership</a></li>
                     <li><a href="{{ route('frontend.services-dentists') }}">Dentists</a></li>
@@ -59,7 +59,7 @@
             </div>
             <!-- CONTACT INFO -->
             <div class="col-lg-3 col-md-4 footer-links">
-                <h4>Contact Info</h4>
+                <h3>Contact Info</h3>
 
                 <div class="contact-item">
                     <div class="contact-icon">
@@ -81,7 +81,7 @@
                         <i class="fa-solid fa-phone"></i>
                     </div>
                     <div class="contact-info">
-                        <p><a href="tel:{{ $footer->phone }}">{{ $footer->phone }}</a></p>
+                        <p><a href="tel:+44 {{ $footer->phone }}">{{ $footer->phone }}</a></p>
                     </div>
                 </div>
 

@@ -2,7 +2,7 @@
   <meta charset="utf-8">
   <meta content="width=device-width, initial-scale=1.0" name="viewport">
   <title>The Doctors and Dentists Protection Union (DDPU) - DDPU</title>
-  <meta name="description" content="">
+  <meta name="description" content="DDPU provides comprehensive medical and dental indemnity, medico-legal advice, GMC revalidation support, and professional protection for UK healthcare professionals.">
   <meta name="keywords" content="">
  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 

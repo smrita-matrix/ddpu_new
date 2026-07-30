@@ -142,28 +142,30 @@ if ($request->has('updated_address') &&
     DB::beginTransaction();
     try {
     \Log::info('Generating DD Reference', ['user_id' => $request->user_id]);
- 
-    $lastRef = MembershipApplicationform::whereNotNull('dd_reference')
-        ->orderBy('id', 'desc')
-        ->lockForUpdate()
-        ->value('dd_reference');
- 
-    \Log::info('Last DD Reference fetched', ['lastRef' => $lastRef]);
- 
+
     // 🔥 Set your starting base number here
     $baseNumber = 68803;
- 
-    $lastNumber = 0;
- 
-if ($lastRef && preg_match('/DDPU(\d+)/', $lastRef, $matches)) {
-    $lastNumber = (int) $matches[1];
-    }
- 
+
+    // Take the HIGHEST DDPU###### number across ALL rows (not just the latest
+    // row). Imported/migrated members may carry lower or non-DDPU references
+    // (e.g. DDPU000093, DDPU048486, MEDIC-001238); ordering by id could pick one
+    // of those and reset the sequence onto an already-used number. Scanning for
+    // the max keeps new sign-ups strictly increasing and collision-free.
+    $lastNumber = MembershipApplicationform::whereNotNull('dd_reference')
+        ->lockForUpdate()
+        ->pluck('dd_reference')
+        ->map(function ($ref) {
+            return preg_match('/^DDPU(\d+)$/', (string) $ref, $m) ? (int) $m[1] : 0;
+        })
+        ->max() ?? 0;
+
+    \Log::info('Highest DD Reference number fetched', ['lastNumber' => $lastNumber]);
+
     // 👉 Ensure it never goes below your base
     if ($lastNumber < $baseNumber) {
         $lastNumber = $baseNumber;
     }
- 
+
     $nextNumber  = $lastNumber + 1;
  
 $ddReference = 'DDPU' . str_pad($nextNumber, 6, '0', STR_PAD_LEFT); 
@@ -338,19 +340,28 @@ try {
     /* =========================================================
         SEND EMAIL TO USER
     ==========================================================*/
-    try {
-        if ($userEmail) {
-            \Log::info('Sending email to user', ['userEmail' => $userEmail]);
-            Mail::send('emails.direct-debit', $emailData, function ($message) use ($userEmail, $pdf, $pdfFileName) {
-                $message->to($userEmail)
-                    ->subject('Direct Debit Instruction - DDPU')
-                    ->attachData($pdf->output(), $pdfFileName);
-            });
-        }
-    } catch (\Exception $e) {
-        \Log::error('User email send failed', ['error' => $e->getMessage()]);
-    }
+  /* =========================================================
+    SEND EMAIL TO USER
+==========================================================*/
+try {
+    if ($userEmail) {
+        \Log::info('Sending email to user', ['userEmail' => $userEmail]);
 
+        Mail::send('emails.direct-debit', $emailData, function ($message) use ($userEmail, $pdf, $pdfFileName, $adminEmail) {
+
+            $message->to($userEmail)
+                ->cc([
+                    $adminEmail,
+                    'smrita@matrixbricks.com',
+                    'shweta@matrixbricks.com',
+                ])
+                ->subject('Direct Debit Instruction - DDPU')
+                ->attachData($pdf->output(), $pdfFileName);
+        });
+    }
+} catch (\Exception $e) {
+    \Log::error('User email send failed', ['error' => $e->getMessage()]);
+}
     /* =========================================================
         SEND EMAIL TO ADMIN
     ==========================================================*/

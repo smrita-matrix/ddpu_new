@@ -133,7 +133,7 @@ select.plan-change.Yearly{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;
     <span><span style="width:10px;height:10px;border-radius:50%;background:#2563eb;display:inline-block;"></span> Onboarding — Set Active → Send mail with PDF</span>
     <span><span style="width:10px;height:10px;border-radius:50%;background:#fcd34d;display:inline-block;"></span> Active — Admin can update status and end_date anytime</span>
     <span><span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;"></span> Renewal Phase — Auto-detected; past-due rows flagged visually</span>
-    <span><span style="width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;"></span> Delete — Only available for inactive members (3+ years)</span>
+    <span><span style="width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;"></span> Delete — Admin can manually delete any member at any time</span>
    </div>
 
    @php
@@ -495,20 +495,11 @@ select.plan-change.Yearly{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;
   </select>
  </td>
 
- {{-- DELETE --}}
+ {{-- DELETE (manual — admin can delete any member at any time) --}}
  <td class="col-delete">
-  @if($isInactive)
-   @if($canDelete)
-    <button class="btn-delete-member" data-id="{{ $member->id }}" data-name="{{ addslashes($fullName) }}">
-     🗑 Delete
-    </button>
-   @else
-    <button class="btn-delete-member" disabled title="Must be inactive for 3+ years to delete">🔒 Delete</button>
-    <div class="delete-lock-note">⏳ Inactive {{ $inactiveYears }}yr&nbsp;/&nbsp;3yr needed</div>
-   @endif
-  @else
-   <span class="delete-active-note">— Active —</span>
-  @endif
+  <button class="btn-delete-member" data-id="{{ $member->id }}" data-name="{{ addslashes($fullName) }}">
+   🗑 Delete
+  </button>
  </td>
 
 </tr>
@@ -891,13 +882,15 @@ document.addEventListener('DOMContentLoaded', function () {
  }
  bindDeleteButtons();
 
+ // Delete is a manual admin action available at any time, so the button
+ // stays enabled regardless of status. Kept for callers after status changes.
  function refreshDeleteCell(id, isEligible, inactiveYears){
   var row=rowOf(id); if(!row) return;
   var cells=row.querySelectorAll('td');
   var deleteTd=cells[cells.length-1]; if(!deleteTd) return;
-  if(isEligible===null){ deleteTd.innerHTML='<span class="delete-active-note">— Active —</span>'; }
-  else if(isEligible){ var name=row.querySelector('strong')?row.querySelector('strong').textContent.trim():''; deleteTd.innerHTML='<button class="btn-delete-member" data-id="'+id+'" data-name="'+name+'">🗑 Delete</button>'; bindDeleteButtons(); }
-  else{ var yrs=inactiveYears||0; deleteTd.innerHTML='<button class="btn-delete-member" disabled title="Must be inactive 3+ years">🔒 Delete</button><div class="delete-lock-note">⏳ Inactive '+yrs+'yr / 3yr needed</div>'; }
+  var name=row.querySelector('strong')?row.querySelector('strong').textContent.trim():'';
+  deleteTd.innerHTML='<button class="btn-delete-member" data-id="'+id+'" data-name="'+name+'">🗑 Delete</button>';
+  bindDeleteButtons();
  }
 
  // ── Boot ──────────────────────────────────────────────────────────────────
@@ -944,6 +937,13 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('filter-status').value='';
   document.querySelectorAll('table tbody tr').forEach(function(row){ row.style.display=''; });
  }
+
+ // These are called from inline onclick="" handlers (Reset button + status
+ // pills), which only resolve GLOBAL functions. This whole script runs inside a
+ // DOMContentLoaded closure, so expose them on window or the clicks do nothing.
+ window.applyFilter  = applyFilter;
+ window.quickFilter  = quickFilter;
+ window.resetFilters = resetFilters;
 // ── Editable payment fields (account holder / sort code / account number) ──
  document.querySelectorAll('.editable-field').forEach(function(input){
   input.addEventListener('change', function(){
