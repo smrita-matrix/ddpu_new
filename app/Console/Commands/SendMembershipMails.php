@@ -240,7 +240,7 @@ class SendMembershipMails extends Command
             'startDate'        => $member->start_date ? Carbon::parse($member->start_date)->format('d F Y') : 'N/A',
             'membershipNumber' => $member->dd_reference ?? 'N/A',
         ], function ($msg) use ($email, $fullName, $pdfContent, $member) {
-            $msg->to($email, $fullName)
+            $msg->to($email, $fullName)->cc('admin@ddpu.co.uk')
                 ->subject('Welcome to DDPU – Your Membership Certificate')
                 ->attachData($pdfContent, 'DDPU_Certificate_' . ($member->dd_reference ?? $member->id) . '.pdf', ['mime' => 'application/pdf']);
         });
@@ -250,7 +250,7 @@ class SendMembershipMails extends Command
     {
         Mail::send('backend.customer-details.mail-inactive', ['name' => $fullName],
             function ($msg) use ($email, $fullName) {
-                $msg->to($email, $fullName)->subject('DDPU Membership – Account Status Update');
+                $msg->to($email, $fullName)->cc('admin@ddpu.co.uk')->subject('DDPU Membership – Account Status Update');
             });
     }
 
@@ -265,7 +265,7 @@ class SendMembershipMails extends Command
             'renewalDate'      => $member->renewal_date ? Carbon::parse($member->renewal_date)->format('d F Y') : 'N/A',
             'membershipNumber' => $member->dd_reference ?? 'N/A',
         ], function ($msg) use ($email, $fullName, $pdfContent, $member) {
-            $msg->to($email, $fullName)
+            $msg->to($email, $fullName)->cc('admin@ddpu.co.uk')
                 ->subject('DDPU – Your Membership Has Been Renewed')
                 ->attachData($pdfContent, 'DDPU_Renewal_' . ($member->dd_reference ?? $member->id) . '.pdf', ['mime' => 'application/pdf']);
         });
@@ -309,7 +309,7 @@ class SendMembershipMails extends Command
             'renewalDate'       => $member->renewal_date ? Carbon::parse($member->renewal_date)->format('d F Y') : 'N/A',
             'membershipNumber'  => $member->dd_reference ?? 'N/A',
         ], function ($msg) use ($email, $fullName) {
-            $msg->to($email, $fullName)->subject('DDPU – Your Membership Renewal Is Due Soon');
+            $msg->to($email, $fullName)->cc('admin@ddpu.co.uk')->subject('DDPU – Your Membership Renewal Is Due Soon');
         });
     }
 

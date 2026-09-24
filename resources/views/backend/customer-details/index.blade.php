@@ -179,7 +179,15 @@ select.plan-change.Yearly{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;
        <option value="inactive">Inactive</option>
       </select>
      </div>
-     <div class="col-xl-4 col-lg-6 col-md-8">
+     <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+      <label class="form-label">Payment Plan</label>
+      <select id="filter-payment-plan" class="form-select form-select-sm">
+       <option value="">All Plans</option>
+       <option value="Monthly">Monthly</option>
+       <option value="Yearly">Annual / Yearly</option>
+      </select>
+     </div>
+     <div class="col-xl-10 col-lg-9 col-md-8">
       <label class="form-label" style="visibility:hidden;">Actions</label>
       <div class="d-flex gap-2">
        <button id="apply-filter" class="btn btn-primary btn-sm flex-fill" style="font-size:12px;font-weight:600;">Apply Filter</button>
@@ -237,11 +245,19 @@ select.plan-change.Yearly{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;
  $isRenewalPhase = $expiry && $expiry->isPast();
  $startFmt       = $member->start_date ? \Carbon\Carbon::parse($member->start_date)->format('d M Y') : null;
 
- // ── END DATE: always display as start + 1 year − 1 day ──────────────────
- $endDate = $member->end_date;
+ // ── END DATE ─────────────────────────────────────────────────────────────
+ // Driven by the RENEWAL DATE (the imported next_renewal_date), NOT by
+ // start + 1 year: for imported members start_date is the original join date
+ // (e.g. 2013 / 2018), so start+1y showed a long-expired end date while the
+ // real cover runs up to the next renewal. Cover ends the day BEFORE the
+ // next renewal date — next renewal 26-11-2026 → end date 25-11-2026.
+ // Only when there is no renewal date at all do we fall back to start + 1 year − 1 day.
+ $endDate       = $member->end_date;
+ $renewalAnchor = $member->renewal_date ? \Carbon\Carbon::parse($member->renewal_date) : null;
 
- if ($member->start_date) {
-     // Correct display: start + 1year - 1day regardless of what is stored
+ if ($renewalAnchor) {
+     $endDateAuto = $renewalAnchor->copy()->subDay();
+ } elseif ($member->start_date) {
      $endDateAuto = \Carbon\Carbon::parse($member->start_date)->addYear()->subDay();
  } elseif ($endDate) {
      $endDateAuto = \Carbon\Carbon::parse($endDate);
@@ -249,16 +265,26 @@ select.plan-change.Yearly{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;
      $endDateAuto = null;
  }
 
- // Use stored end_date only if it differs from start+1year (manual override by admin)
- if ($endDate && $member->start_date) {
-     $storedEnd      = \Carbon\Carbon::parse($endDate);
-     $startPlus1Year = \Carbon\Carbon::parse($member->start_date)->addYear();
-     // If DB has start+1year exactly (wrong), correct to start+1year-1day for display
-     $endDateDisplay = $storedEnd->isSameDay($startPlus1Year)
-         ? $startPlus1Year->subDay()
-         : $storedEnd;
- } else {
-     $endDateDisplay = $endDateAuto;
+ // A stored end_date only wins when it is a real admin override, i.e. it
+ // matches neither the renewal-derived end nor the start+1y variants.
+ $endDateDisplay = $endDateAuto;
+
+ if ($endDate && $endDateAuto) {
+     $storedEnd  = \Carbon\Carbon::parse($endDate);
+     $autoValues = [$endDateAuto];
+     if ($member->start_date) {
+         $autoValues[] = \Carbon\Carbon::parse($member->start_date)->addYear();
+         $autoValues[] = \Carbon\Carbon::parse($member->start_date)->addYear()->subDay();
+     }
+     if ($renewalAnchor) {
+         $autoValues[] = $renewalAnchor->copy();
+     }
+
+     $isAutoValue = false;
+     foreach ($autoValues as $candidate) {
+         if ($storedEnd->isSameDay($candidate)) { $isAutoValue = true; break; }
+     }
+     if (!$isAutoValue) $endDateDisplay = $storedEnd;
  }
 
  $endDateFmt = $endDateDisplay ? $endDateDisplay->format('d M Y') : null;
@@ -308,10 +334,11 @@ select.plan-change.Yearly{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;
  data-mail-sent="{{ $member->mail_sent_at ? '1' : '0' }}"
  data-expiry-fmt="{{ $endDateFmt }}"
  data-renewal-status="{{ $displayRenewalStatus }}"
+ data-payment-plan="{{ $planValue }}"
  data-renewal-date="{{ $member->renewal_date ? \Carbon\Carbon::parse($member->renewal_date)->format('Y-m-d') : '' }}"
  data-past-due="{{ $isPastDue ? '1' : '0' }}"
 >
- <td class="text-muted" style="font-size:11px;font-weight:600;">{{ $key+1 }}</td>
+ <td class="text-muted sno" style="font-size:11px;font-weight:600;">{{ $key+1 }}</td>
  <td><span class="fw-bold text-primary" style="font-size:12px;">{{ $member->dd_reference ?? '—' }}</span></td>
  <td>
   @if(!empty($payment['file_name']))
@@ -752,6 +779,21 @@ document.addEventListener('DOMContentLoaded', function () {
    .then(function(data){
     if(!data.success) return;
     var row=rowOf(id); if(row) row.dataset.renewalStatus=rStatus;
+    // Renewal Completed rolls the cycle forward one year (2026 → 2027) —
+    // show the new renewal / end date straight away instead of waiting for a reload.
+    if(data.renewal_date){
+     if(ri) ri.value=data.renewal_date;
+     if(row) row.dataset.renewalDate=data.renewal_date;
+    }
+    if(data.end_date){
+     var ei=document.querySelector(".end-date-input[data-id='"+id+"']");
+     if(ei) ei.value=data.end_date;
+     var efmt=formatDate(data.end_date);
+     if(row){
+      row.querySelectorAll('.lifecycle-lock').forEach(function(el){ el.textContent='🔒 Until '+efmt; });
+      row.querySelectorAll('.lock-note').forEach(function(el){ if(el.textContent.indexOf('Active until')!==-1) el.textContent='✅ Active until '+efmt; });
+     }
+    }
     recomputePastDue(id); var past=isPastDue(id);
     var rmc=document.getElementById('renewal-mail-cell-'+id); if(!rmc) return;
     if(rStatus==='due'){ rmc.innerHTML='<div class="mail-locked-box">— Renewal completed —</div>'; return; }
@@ -845,7 +887,7 @@ document.addEventListener('DOMContentLoaded', function () {
     fetch("{{ route('admin.member.updatePayment') }}",{ method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}, body:JSON.stringify({id:id,field:'payment_plan',value:newPlan}) })
     .then(r=>r.json())
     .then(function(data){
-     if(data && data.success){ Toast.fire({icon:'success',title:'Plan updated to '+newPlan}); selEl.dataset.prev=newPlan; paintPlan(selEl); }
+     if(data && data.success){ Toast.fire({icon:'success',title:'Plan updated to '+newPlan}); selEl.dataset.prev=newPlan; paintPlan(selEl); var tr=rowOf(id); if(tr) tr.dataset.paymentPlan=newPlan; }
      else{ selEl.value=prevPlan; paintPlan(selEl); Swal.fire({icon:'error',title:'Update Failed',text:(data&&data.message)||'Could not update plan'}); }
     })
     .catch(function(){ selEl.value=prevPlan; paintPlan(selEl); Toast.fire({icon:'error',title:'Request failed'}); });
@@ -907,16 +949,19 @@ document.addEventListener('DOMContentLoaded', function () {
   var rf=document.getElementById('filter-renewal-from').value;
   var rt=document.getElementById('filter-renewal-to').value;
   var st=document.getElementById('filter-status').value;
+  var pp=document.getElementById('filter-payment-plan').value;
   document.querySelectorAll('table tbody tr').forEach(function(row){
    if(row.cells.length<=1) return;
    var show=true;
    if(st && row.dataset.status!==st) show=false;
+   if(pp && row.dataset.paymentPlan!==pp) show=false;
    if(rs && row.dataset.renewalStatus!==rs) show=false;
    var rd=row.dataset.renewalDate||'';
    if(rf && rd && rd<rf) show=false;
    if(rt && rd && rd>rt) show=false;
    row.style.display=show?'':'none';
   });
+  renumberRows();
  }
 
  function quickFilter(type,value){
@@ -928,6 +973,16 @@ document.addEventListener('DOMContentLoaded', function () {
    if(type==='renewal') match=(row.dataset.renewalStatus===value);
    row.style.display=match?'':'none';
   });
+  renumberRows();
+ }
+
+ // S.No counts only the rows currently shown, so it restarts at 1 after a filter.
+ function renumberRows(){
+  var n=0;
+  document.querySelectorAll('table tbody tr').forEach(function(row){
+   var cell=row.querySelector('td.sno');
+   if(cell && row.style.display!=='none') cell.textContent=++n;
+  });
  }
 
  function resetFilters(){
@@ -935,7 +990,9 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('filter-renewal-from').value='';
   document.getElementById('filter-renewal-to').value='';
   document.getElementById('filter-status').value='';
+  document.getElementById('filter-payment-plan').value='';
   document.querySelectorAll('table tbody tr').forEach(function(row){ row.style.display=''; });
+  renumberRows();
  }
 
  // These are called from inline onclick="" handlers (Reset button + status
@@ -977,6 +1034,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var rf = document.getElementById('filter-renewal-from').value;
   var rt = document.getElementById('filter-renewal-to').value;
   var st = document.getElementById('filter-status').value;
+  var pp = document.getElementById('filter-payment-plan').value;
+  if(pp) params.append('payment_plan',   pp);
   if(rs) params.append('renewal_status', rs);
   if(rf) params.append('renewal_from',   rf);
   if(rt) params.append('renewal_to',     rt);

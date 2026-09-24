@@ -70,11 +70,43 @@ class FastPayService
         foreach ($statuses as $status) {
             $resp = $this->getCustomersByStatus($status);
             foreach (($resp->json('Data') ?? []) as $row) {
+                // Rows carry their own Status, but fall back to the one we asked for.
+                $row['Status'] = $row['Status'] ?? $status;
                 $all[] = $row;
             }
         }
 
         return $all;
+    }
+
+    /**
+     * DD reference => the status FastPay currently holds for it.
+     *
+     * A reference can exist under more than one status (an old expired mandate
+     * plus a current live one), so the most active status wins.
+     *
+     * @return array<string, string> normalised reference => status
+     */
+    public function getCustomerStatusMap(): array
+    {
+        $rank = ['live' => 4, 'suspended' => 3, 'expired' => 2, 'cancelled' => 1];
+        $map  = [];
+
+        foreach ($this->getAllCustomers() as $c) {
+            $key = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($c['DDReference'] ?? '')));
+            if ($key === '' || empty($c['Status'])) {
+                continue;
+            }
+
+            $status = (string) $c['Status'];
+            $held   = $map[$key] ?? null;
+
+            if ($held === null || ($rank[strtolower($status)] ?? 0) > ($rank[strtolower($held)] ?? 0)) {
+                $map[$key] = $status;
+            }
+        }
+
+        return $map;
     }
 
     /**

@@ -267,7 +267,8 @@ try {
 
         Mail::send('emails.step7-admin-alert', $mailData, function ($message) use ($userName, $pdf) {
 
-            $message->to('smrita@matrixbricks.com')
+            // $message->to('smrita@matrixbricks.com')
+            $message->to('admin@ddpu.co.uk')
                 ->subject('Designated Body - ' . $userName)
 
                 // Attach PDF
@@ -352,8 +353,8 @@ try {
             $message->to($userEmail)
                 ->cc([
                     $adminEmail,
-                    'smrita@matrixbricks.com',
-                    'shweta@matrixbricks.com',
+                    // 'smrita@matrixbricks.com',
+                    // 'shweta@matrixbricks.com',
                 ])
                 ->subject('Direct Debit Instruction - DDPU')
                 ->attachData($pdf->output(), $pdfFileName);

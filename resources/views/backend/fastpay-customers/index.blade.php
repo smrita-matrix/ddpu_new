@@ -59,10 +59,17 @@
                 <div class="card">
                     <div class="card-body">
 
-                        <p class="mb-3" style="font-size:13px;color:#6b7280;">
-                            Customers from your uploaded Direct Debit files
-                            &mdash; {{ count($customers) }} customer(s). Click <b>View</b> for full history from FastPay.
-                        </p>
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <p class="mb-0" style="font-size:13px;color:#6b7280;">
+                                Customers from your uploaded Direct Debit files
+                                &mdash; {{ count($customers) }} customer(s). Statuses come from FastPay.
+                                Click <b>View</b> for full history.
+                            </p>
+                            <a href="{{ url('/fastpay/customers') }}?refresh=1"
+                               class="btn btn-primary btn-sm" style="color:#fff;white-space:nowrap;padding:5px 16px;">
+                                Refresh statuses
+                            </a>
+                        </div>
 
                         @if($error)
                             <div class="alert alert-danger" style="font-size:13.5px;">⚠️ {{ $error }}</div>
@@ -86,7 +93,14 @@
                                         @php
                                             $status = $c['status'] ?? '';
                                             $sl     = strtolower($status);
-                                            $cls    = $sl === 'paid' ? 'fp-paid' : ($sl === 'failed' ? 'fp-failed' : 'fp-suspended');
+                                            $cls    = match ($sl) {
+                                                'live'      => 'fp-live',
+                                                'paid'      => 'fp-paid',
+                                                'cancelled' => 'fp-cancelled',
+                                                'expired'   => 'fp-expired',
+                                                'failed'    => 'fp-failed',
+                                                default     => 'fp-suspended',
+                                            };
                                             $ref    = $c['dd_reference'] ?? '';
                                         @endphp
                                         <tr>

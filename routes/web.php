@@ -72,7 +72,8 @@ use Illuminate\Support\Facades\Mail;
 Route::get('/test-mail', function () {
     try {
         Mail::raw('Test email from DDPU site — if you got this, mail works.', function ($m) {
-            $m->to('smrita@matrixbricks.com')->subject('DDPU mail test');
+            // $m->to('smrita@matrixbricks.com')->subject('DDPU mail test');
+            $m->to('admin@ddpu.co.uk')->subject('DDPU mail test');
         });
         return 'SENT — check the inbox (and spam folder).';
     } catch (\Throwable $e) {

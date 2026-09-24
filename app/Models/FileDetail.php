@@ -19,6 +19,7 @@ class FileDetail extends Model
         'due_date',
         'bacs_code',
         'status',
+        'mandate_status',
         'error_message',
         'forename',
         'surname',

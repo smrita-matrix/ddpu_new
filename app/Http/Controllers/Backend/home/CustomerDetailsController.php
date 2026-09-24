@@ -166,11 +166,11 @@ class CustomerDetailsController extends Controller
      */
     private function processingDate(): Carbon
     {
-        // TEMPORARY: pretend today is the 25th of the current month.
-        return Carbon::now()->setDay(25);
+        // LIVE: real processing date.
+        return Carbon::now();
 
-        // LIVE (revert to this before go-live):
-        // return Carbon::now();
+        // TEST MODE (pretend today is the 25th of the current month):
+        // return Carbon::now()->setDay(25);
     }
 
     // =========================================================
@@ -338,8 +338,37 @@ class CustomerDetailsController extends Controller
 
         if ($requestedStatus === 'due') {
             // Renewal Completed — set status, NO mail is triggered here or elsewhere.
-            $expiry = $this->getExpiry($membership);
-            $membership->renewal_date              = $expiry ? $expiry->copy()->addYear() : $today->copy()->addYear();
+            //
+            // NEXT RENEWAL DATE = the CURRENT renewal date + 1 year.
+            // It is never recomputed from start_date: for imported members
+            // start_date is the original join date (e.g. 2013 / 2018), so the
+            // old start+1y+1y formula overwrote the real renewal date with a
+            // past year. Imported next_renewal_date 26-11-2026 → 26-11-2027.
+            $currentRenewal = $membership->renewal_date
+                ? Carbon::parse($membership->renewal_date)
+                : null;
+
+            if ($currentRenewal) {
+                $nextRenewal = $currentRenewal->copy()->addYear();
+            } else {
+                // No renewal date on the record at all — fall back to the next
+                // anniversary if it is still ahead of us, else one year out.
+                $expiry      = $this->getExpiry($membership);
+                $nextRenewal = ($expiry && $expiry->isFuture())
+                    ? $expiry->copy()
+                    : $today->copy()->addYear();
+            }
+
+            // Keep the cover end date (the day before the next renewal) in
+            // step, unless an admin has stored an end_date of their own.
+            $endInSync = !$membership->end_date
+                || ($currentRenewal && Carbon::parse($membership->end_date)
+                        ->isSameDay($currentRenewal->copy()->subDay()));
+            if ($endInSync) {
+                $membership->end_date = $nextRenewal->copy()->subDay();
+            }
+
+            $membership->renewal_date              = $nextRenewal->toDateString();
             $membership->renewal_status            = 'due';
             $membership->renewal_mail_sent_at      = null;
             $membership->renewal_mail_trigger_date = null;
@@ -361,6 +390,7 @@ class CustomerDetailsController extends Controller
             'message'        => 'Renewal updated',
             'renewal_status' => $membership->renewal_status,
             'renewal_date'   => $membership->renewal_date ? Carbon::parse($membership->renewal_date)->format('Y-m-d') : null,
+            'end_date'       => $membership->end_date ? Carbon::parse($membership->end_date)->format('Y-m-d') : null,
         ]);
     }
 
@@ -379,7 +409,9 @@ class CustomerDetailsController extends Controller
             'success'      => true,
             'message'      => 'Updated successfully',
             'price'        => $membership->price,
-            'renewal_date' => $membership->renewal_date?->format('Y-m-d'),
+            // renewal_date is not cast on the model, so it is a plain string
+            // when it came from the DB — ?->format() would fatal on it.
+            'renewal_date' => $membership->renewal_date ? Carbon::parse($membership->renewal_date)->format('Y-m-d') : null,
         ]);
     }
 
@@ -461,9 +493,14 @@ class CustomerDetailsController extends Controller
         [$step1, $step2, $step7, $payment, $fullName, $email] = $this->extractMemberData($member);
         if (!$email) return ['success' => false, 'message' => 'Member email not found'];
 
-        $ccEmail = 'admin@ddpu.co.uk';
-        $ccEmail = 'smrita@matrixbricks.com';
-
+        // FIX: these were three separate assignments to the same variable —
+        // each one silently overwrote the last, so only shweta@matrixbricks.com
+        // was ever actually CC'd. Now all three are CC'd via an array.
+        $ccEmail = [
+            'admin@ddpu.co.uk',
+            // 'smrita@matrixbricks.com',
+            // 'shweta@matrixbricks.com',
+        ];
 
         // Inactive never sends mail — defensive guard.
         if ($status !== 'active') {
@@ -523,6 +560,7 @@ class CustomerDetailsController extends Controller
                 'next_collection'    => $nextCollectionDate?->toDateString(),
                 'first_installments' => $firstInstallments,
                 'first_debit_amount' => $firstDebitAmount,
+                'cc_email'           => $ccEmail,
             ]);
 
             Mail::send('backend.customer-details.mail-active', [
@@ -574,8 +612,12 @@ class CustomerDetailsController extends Controller
         [$step1, $step2, $step7, $payment, $fullName, $email] = $this->extractMemberData($member);
         if (!$email) return ['success' => false, 'message' => 'Member email not found'];
 
-        $ccEmail = 'admin@ddpu.co.uk';
-        $ccEmail = 'smrita@matrixbricks.com';
+        // FIX: same overwrite bug as dispatchStatusMail() — now all three CC'd.
+        $ccEmail = [
+            'admin@ddpu.co.uk',
+            // 'smrita@matrixbricks.com',
+            // 'shweta@matrixbricks.com',
+        ];
 
         // Only reminder is supported now.
         if ($mailType !== 'reminder') {
@@ -632,6 +674,7 @@ class CustomerDetailsController extends Controller
                 'next_collection'     => $nextCollectionDate?->toDateString(),
                 'first_installments'  => $firstInstallments,
                 'first_debit_amount'  => $firstDebitAmount,
+                'cc_email'            => $ccEmail,
             ]);
 
             // ---- Generate renewal certificate PDF ----
@@ -748,6 +791,22 @@ class CustomerDetailsController extends Controller
         if ($request->renewal_to)     $query->whereDate('renewal_date', '<=', $request->renewal_to);
 
         $memberships = $query->orderByDesc('id')->get();
+
+        // Payment plan lives inside the step1_signup JSON, not in its own column,
+        // so it cannot be filtered in SQL — narrow the results here instead.
+        // 'Monthly' and 'Yearly' are the two values the screen offers; anything
+        // stored as annual/yearly counts as Yearly.
+        if ($plan = $request->payment_plan) {
+            $wantMonthly = strtolower($plan) === 'monthly';
+
+            $memberships = $memberships->filter(function ($m) use ($wantMonthly) {
+                $raw = strtolower(trim((string) data_get($this->decode($m->step1_signup), 'payment_plan', '')));
+
+                return $wantMonthly
+                    ? str_contains($raw, 'monthly')
+                    : (str_contains($raw, 'year') || str_contains($raw, 'annual'));
+            })->values();
+        }
 
         if ($type === 'report') return $this->streamReport($memberships);
         if ($type === 'csv')    return $this->streamCsv($memberships);

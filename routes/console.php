@@ -10,6 +10,12 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 
+// FastPay collection results (paid / failed) → file_details.status.
+// Laravel 12 does not read app/Console/Kernel.php, so it must be scheduled here.
+Schedule::command('sync:fastpay-status')
+    ->everyTenMinutes()
+    ->withoutOverlapping();
+
 // ✅ YOUR MEMBERSHIP MAIL SCHEDULER
 Schedule::command('membership:send-scheduled-mails')
     ->dailyAt('08:00')

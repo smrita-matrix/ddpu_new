@@ -84,8 +84,9 @@ class ContactController extends Controller
             Mail::send('emails.contact_admin', ['details' => $details], function ($message) {
                 $message->to('info@ddpu.co.uk')
                         ->cc([
-                            'shweta@matrixbricks.com',
-                            'smrita@matrixbricks.com'
+                            'admin@ddpu.co.uk',
+                            // 'shweta@matrixbricks.com',
+                            // 'smrita@matrixbricks.com'
                         ])
                         ->subject('Contact Us Enquiry');
             });
@@ -99,6 +100,7 @@ class ContactController extends Controller
         try {
             Mail::send('emails.contact_user', ['details' => $details], function ($message) use ($details) {
                 $message->to($details['email'])
+                        ->cc('admin@ddpu.co.uk')
                         ->subject('Thank You for Your Enquiry');
             });
             Log::info('User mail sent to: ' . $details['email']);

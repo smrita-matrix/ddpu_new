@@ -5,10 +5,16 @@ namespace App\Http\Controllers\Backend\home;
 use App\Http\Controllers\Controller;
 use App\Services\FastPayService;
 use App\Models\FileDetail;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class FastpayCustomerController extends Controller
 {
+    /** Portal statuses are cached so the list page isn't four API calls on every hit. */
+    private const STATUS_CACHE_KEY     = 'fastpay.customer_statuses';
+    private const STATUS_CACHE_MINUTES = 10;
+
     protected FastPayService $fastpay;
 
     public function __construct(FastPayService $fastpay)
@@ -21,9 +27,30 @@ class FastpayCustomerController extends Controller
      * (one row per unique DD reference found in file_details). The detail
      * popup still fetches that customer's history live from FastPay.
      */
-    public function index()
+    public function index(Request $request)
     {
         $error = null;
+
+        // Pull the live MANDATE state for every customer from FastPay and write it
+        // to file_details.mandate_status. It is deliberately NOT written to
+        // file_details.status — that column is the per-transaction collection
+        // result (processing / paid / failed) owned by `sync:fastpay-status`.
+        try {
+            if ($request->boolean('refresh')) {
+                Cache::forget(self::STATUS_CACHE_KEY);
+            }
+
+            $statusMap = Cache::remember(
+                self::STATUS_CACHE_KEY,
+                now()->addMinutes(self::STATUS_CACHE_MINUTES),
+                fn () => $this->fastpay->getCustomerStatusMap()
+            );
+
+            $this->syncStatuses($statusMap);
+        } catch (\Throwable $e) {
+            Log::error('FastPay status sync failed', ['error' => $e->getMessage()]);
+            $error = 'Could not reach FastPay to refresh statuses — showing the last known status.';
+        }
 
         $customers = FileDetail::query()
             ->whereNotNull('dd_reference')
@@ -40,13 +67,58 @@ class FastpayCustomerController extends Controller
                     'sort_code'      => $this->padSortCode($d->sort_code),
                     'account_number' => $this->padAccount($d->account_number),
                     'amount'         => (float) ($d->amount ?? 0),
-                    'status'         => $d->status ?: 'processing',
+                    // Mandate state from the portal; falls back to the collection
+                    // result until the first sync has run for that reference.
+                    'status'         => $d->mandate_status ?: ($d->status ?: 'processing'),
                 ];
             })
             ->values()
             ->all();
 
         return view('backend.fastpay-customers.index', compact('customers', 'error'));
+    }
+
+    /**
+     * Write the portal mandate state onto every file_details row whose DD
+     * reference FastPay knows about. Grouped into one UPDATE per status so a
+     * full sync is a handful of queries rather than one per member.
+     *
+     * @param array<string, string> $statusMap normalised reference => status
+     */
+    private function syncStatuses(array $statusMap): void
+    {
+        if (!$statusMap) {
+            return;
+        }
+
+        $rows = FileDetail::query()
+            ->whereNotNull('dd_reference')
+            ->where('dd_reference', '!=', '')
+            ->get(['id', 'dd_reference', 'mandate_status']);
+
+        $byStatus = [];
+
+        foreach ($rows as $r) {
+            $status = $statusMap[$this->normRef($r->dd_reference)] ?? null;
+
+            if ($status === null || $status === $r->mandate_status) {
+                continue;
+            }
+
+            $byStatus[$status][] = $r->id;
+        }
+
+        foreach ($byStatus as $status => $ids) {
+            foreach (array_chunk($ids, 500) as $chunk) {
+                FileDetail::whereIn('id', $chunk)->update(['mandate_status' => $status]);
+            }
+        }
+    }
+
+    /** Same normalisation FastPayService uses, so the two sides match. */
+    private function normRef($ref): string
+    {
+        return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $ref));
     }
 
     /**
